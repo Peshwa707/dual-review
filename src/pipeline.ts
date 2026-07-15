@@ -49,10 +49,17 @@ export async function runPipeline(
   const review = await rev.review(task, artifact);
 
   // Run gates in order, short-circuiting on the first failure. No gates run if review rejected.
+  // A gate that throws fails closed (recorded as a fail), never crashing the pipeline.
+  // The gate's own `name` is authoritative — stamped onto the result.
   const gateResults: GateResult[] = [];
   if (review.approved) {
     for (const gate of gates) {
-      const result = await gate.run(task);
+      let result: GateResult;
+      try {
+        result = { ...(await gate.run(task, artifact)), gate: gate.name };
+      } catch (err) {
+        result = { gate: gate.name, status: "fail", evidence: `gate threw: ${err instanceof Error ? err.message : String(err)}` };
+      }
       gateResults.push(result);
       if (result.status !== "pass") break;
     }

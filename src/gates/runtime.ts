@@ -20,7 +20,13 @@ export async function runtimeGate(task: Task): Promise<GateResult> {
   const opts: SpawnOpts = { timeoutMs };
   if (env === "clean") opts.env = allowlistedEnv();
 
-  const r = await spawnBounded(argv, opts);
+  let r;
+  try {
+    r = await spawnBounded(argv, opts);
+  } catch (err) {
+    // e.g. a nonexistent verify binary makes Bun.spawn throw ENOENT — that's a fail, not a crash.
+    return { gate: "runtime", status: "fail", evidence: `spawn failed: ${err instanceof Error ? err.message : String(err)}` };
+  }
 
   if (r.timedOut) {
     return {
@@ -41,5 +47,5 @@ export async function runtimeGate(task: Task): Promise<GateResult> {
   };
 }
 
-/** The runtime gate as a registered Gate (the pipeline's default). */
-export const runtimeGateDef: Gate = { name: "runtime", run: runtimeGate };
+/** The runtime gate as a registered Gate (the pipeline's default). Ignores the artifact. */
+export const runtimeGateDef: Gate = { name: "runtime", run: (task) => runtimeGate(task) };

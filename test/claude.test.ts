@@ -104,6 +104,10 @@ describe("defaultClaudeRunner (hermetic — injected spawn)", () => {
     expect(seenArgv?.slice(0, 4)).toEqual(["claude", "-p", "--output-format", "text"]);
     expect(seenArgv).toContain("--allowedTools"); // deny-by-default allowlist
     expect(seenArgv).toContain("--strict-mcp-config"); // ignore ambient MCP servers
+    // the empty-string value must sit directly after --allowedTools, then --strict-mcp-config
+    const ai = seenArgv?.indexOf("--allowedTools") ?? -1;
+    expect(seenArgv?.[ai + 1]).toBe("");
+    expect(seenArgv?.[ai + 2]).toBe("--strict-mcp-config");
     expect(seenArgv).not.toContain("--dangerously-skip-permissions"); // prompt not in argv
     expect(seenStdin).toBe("--dangerously-skip-permissions"); // prompt on stdin
   });

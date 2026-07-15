@@ -10,8 +10,9 @@ const CLAUDE_ENV_PASSTHROUGH = ["ANTHROPIC_API_KEY", "CLAUDE_CODE_OAUTH_TOKEN", 
 // built-in tool is auto-permitted (and nothing is grantable in non-interactive -p), which also
 // covers MCP (mcp__*) and any future tool a name-denylist would miss. --strict-mcp-config makes the
 // child ignore the operator's ambient MCP servers otherwise loaded via inherited HOME.
-// Best-available application-level restriction; the runtime denial in -p is not live-verified from a
-// nested Claude Code session (see the deferred Claude live path).
+// The PRIMARY guarantee is that non-interactive `claude -p` default-DENIES any tool needing
+// permission; this empty allowlist + strict-mcp is belt-and-suspenders on top. Not live-verified
+// from a nested Claude Code session (see the deferred Claude live path).
 const CLAUDE_TOOL_LOCK = ["--allowedTools", "", "--strict-mcp-config"];
 
 /** Result of one `claude -p` invocation (its printed text). */

@@ -62,6 +62,39 @@ describe("gate registry", () => {
     expect(v.passed).toBe(false);
   });
 
+  test("records every gate when a later gate fails", async () => {
+    const log: string[] = [];
+    const v = await runPipeline(task, config, adapters, [fakeGate("a", "pass", log), fakeGate("b", "fail", log)]);
+    expect(log).toEqual(["a", "b"]);
+    expect(v.gates.map((g) => g.gate)).toEqual(["a", "b"]);
+    expect(v.passed).toBe(false);
+  });
+
+  test("a throwing gate fails closed (recorded as fail, pipeline does not crash)", async () => {
+    const throwingGate: Gate = {
+      name: "boom",
+      async run() {
+        throw new Error("kaboom");
+      },
+    };
+    const v = await runPipeline(task, config, adapters, [throwingGate]);
+    expect(v.gates).toHaveLength(1);
+    expect(v.gates[0]?.gate).toBe("boom"); // identity comes from Gate.name
+    expect(v.gates[0]?.status).toBe("fail");
+    expect(v.passed).toBe(false);
+  });
+
+  test("the pipeline stamps the gate's name onto the result (name is authoritative)", async () => {
+    const misnamed: Gate = {
+      name: "official",
+      async run() {
+        return { gate: "SELF-REPORTED", status: "pass", evidence: "x" };
+      },
+    };
+    const v = await runPipeline(task, config, adapters, [misnamed]);
+    expect(v.gates[0]?.gate).toBe("official"); // not "SELF-REPORTED"
+  });
+
   test("defaults to the runtime gate when no gate list is given", async () => {
     const v = await runPipeline(task, config, adapters);
     expect(v.gates.map((g) => g.gate)).toEqual(["runtime"]);

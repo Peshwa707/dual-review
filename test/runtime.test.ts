@@ -81,4 +81,10 @@ describe("runtimeGate", () => {
     const g = await runtimeGate(mk("echo a; echo b", "b"));
     expect(g.status).toBe("pass"); // the ';' ran a second command
   });
+
+  test("returns a structured fail when the command binary does not exist (no crash)", async () => {
+    const g = await runtimeGate({ id: "t", prompt: "p", verify: { command: ["/no/such/bin"], expect: "x" } });
+    expect(g.status).toBe("fail");
+    expect(g.evidence).toContain("spawn failed");
+  });
 });
