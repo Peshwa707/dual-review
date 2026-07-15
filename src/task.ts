@@ -25,11 +25,15 @@ export function assertTask(x: unknown): asserts x is Task {
   } else {
     throw new Error("invalid task: 'verify.command' must be a string or string[]");
   }
-  if (typeof v.expect !== "string") {
-    throw new Error("invalid task: 'verify.expect' must be a string");
+  if (typeof v.expect !== "string" || v.expect.length === 0) {
+    // An empty expect matches every output (`includes("")` is always true), nullifying the gate.
+    throw new Error("invalid task: 'verify.expect' must be a non-empty string");
   }
-  if (v.timeoutMs !== undefined && (typeof v.timeoutMs !== "number" || v.timeoutMs <= 0)) {
-    throw new Error("invalid task: 'verify.timeoutMs' must be a positive number");
+  if (
+    v.timeoutMs !== undefined &&
+    (typeof v.timeoutMs !== "number" || !Number.isFinite(v.timeoutMs) || v.timeoutMs <= 0)
+  ) {
+    throw new Error("invalid task: 'verify.timeoutMs' must be a finite positive number");
   }
   if (v.env !== undefined && v.env !== "inherit" && v.env !== "clean") {
     throw new Error("invalid task: 'verify.env' must be \"inherit\" or \"clean\"");

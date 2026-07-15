@@ -71,7 +71,7 @@ The runtime gate executes `verify.command` via `sh -c`. **v0 assumes the task sp
 
 For less-trusted specs, v1.2 adds safer options on `verify`:
 - `command` as a **string[]** runs as a raw argv with **no shell** — shell metacharacters are inert (no injection).
-- `env: "clean"` runs the command under a **least-privilege environment** (OS essentials only, no inherited secrets).
+- `env: "clean"` drops **inherited environment variables** (OS essentials only). Note: on-disk credentials under `$HOME` stay reachable until filesystem isolation lands — this closes the env-var channel, not the file channel.
 
 The runtime gate always bounds each run with a wall-clock timeout and a capped output buffer. Full sandboxing (no network, filesystem isolation) and pinning each model adapter's tool posture remain on the roadmap.
 

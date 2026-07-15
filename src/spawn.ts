@@ -37,8 +37,9 @@ const BASE_ENV_KEYS = [
 
 /**
  * Build a least-privilege child environment: OS essentials plus the caller's explicit
- * passthrough keys, and nothing else. Keeps unrelated secrets in the parent environment
- * out of the spawned child. CLAUDECODE is never included, which also un-blocks a nested `claude`.
+ * passthrough keys, and nothing else. This drops inherited environment VARIABLES (unrelated
+ * secrets, CLAUDECODE) — it does NOT isolate the filesystem: HOME is retained, so on-disk
+ * credentials (~/.aws, ~/.codex/auth.json, ~/.config) stay reachable until FS sandboxing lands.
  */
 export function allowlistedEnv(passthrough: string[] = []): Record<string, string> {
   const out: Record<string, string> = {};
@@ -58,8 +59,10 @@ async function readCapped(stream: ReadableStream<Uint8Array>, maxBytes: number):
     const { done, value } = await reader.read();
     if (done) break;
     if (value && stored < maxBytes) {
-      chunks.push(value);
-      stored += value.length;
+      // Truncate the boundary chunk so retained output never exceeds maxBytes.
+      const slice = value.length <= maxBytes - stored ? value : value.subarray(0, maxBytes - stored);
+      chunks.push(slice);
+      stored += slice.length;
     }
   }
   return Buffer.concat(chunks).toString("utf8");
@@ -72,7 +75,11 @@ async function readCapped(stream: ReadableStream<Uint8Array>, maxBytes: number):
  */
 export const spawnBounded: Spawner = async (argv, opts) => {
   const maxBytes = opts.maxOutputBytes ?? DEFAULT_MAX_OUTPUT_BYTES;
-  const proc = Bun.spawn(argv, { stdout: "pipe", stderr: "pipe", cwd: opts.cwd, env: opts.env });
+  // Omit `env` entirely when not overriding — passing `env: undefined` gives Bun an EMPTY
+  // environment, which silently breaks inheritance. Only set it for an explicit override.
+  const proc = opts.env
+    ? Bun.spawn(argv, { stdout: "pipe", stderr: "pipe", cwd: opts.cwd, env: opts.env })
+    : Bun.spawn(argv, { stdout: "pipe", stderr: "pipe", cwd: opts.cwd });
 
   let timedOut = false;
   const term = setTimeout(() => {

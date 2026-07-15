@@ -17,7 +17,7 @@ export interface VerifySpec {
   expect: string;
   /** Wall-clock limit for the verify command, in ms. Defaults to 30000. */
   timeoutMs?: number;
-  /** "clean" runs the command under a least-privilege env (no inherited secrets). Defaults to "inherit". */
+  /** "clean" drops inherited env VARS (on-disk creds under HOME stay reachable until FS isolation). Defaults to "inherit". */
   env?: "inherit" | "clean";
 }
 

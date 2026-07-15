@@ -51,4 +51,34 @@ describe("runtimeGate", () => {
     expect(g.status).toBe("pass"); // HOME survives the allowlist
     expect(g.evidence).toContain("env=clean");
   });
+
+  test("clean env drops an inherited secret var from the verify command", async () => {
+    process.env.DR_GATE_SECRET = "leak";
+    try {
+      const g = await runtimeGate({
+        id: "t",
+        prompt: "p",
+        verify: { command: ["sh", "-c", "echo ${DR_GATE_SECRET:-GONE}"], expect: "GONE", env: "clean" },
+      });
+      expect(g.status).toBe("pass"); // secret absent -> prints GONE
+    } finally {
+      delete process.env.DR_GATE_SECRET;
+    }
+  });
+
+  test("inherit env (default) passes the real environment through", async () => {
+    // Under inherit, the actual startup environment (e.g. HOME) is visible to the command.
+    // (Bun snapshots env at startup, so a runtime-set var can't demonstrate this — HOME can.)
+    const g = await runtimeGate({
+      id: "t",
+      prompt: "p",
+      verify: { command: ["sh", "-c", "echo $HOME"], expect: "/" },
+    });
+    expect(g.status).toBe("pass");
+  });
+
+  test("a string command DOES shell-interpret — documents the trust boundary", async () => {
+    const g = await runtimeGate(mk("echo a; echo b", "b"));
+    expect(g.status).toBe("pass"); // the ';' ran a second command
+  });
 });

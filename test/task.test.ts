@@ -41,4 +41,22 @@ describe("assertTask", () => {
       assertTask({ id: "x", prompt: "p", verify: { command: "e", expect: "e", env: "wild" } }),
     ).toThrow(/verify\.env/);
   });
+
+  test("rejects an empty expect (would pass on any output)", () => {
+    expect(() => assertTask({ id: "x", prompt: "p", verify: { command: "e", expect: "" } })).toThrow(
+      /verify\.expect/,
+    );
+  });
+
+  test("rejects a non-finite timeoutMs (NaN/Infinity)", () => {
+    expect(() =>
+      assertTask({ id: "x", prompt: "p", verify: { command: "e", expect: "e", timeoutMs: Number.NaN } }),
+    ).toThrow(/timeoutMs/);
+  });
+
+  test("accepts a valid env mode", () => {
+    expect(() =>
+      assertTask({ id: "x", prompt: "p", verify: { command: "e", expect: "e", env: "clean" } }),
+    ).not.toThrow();
+  });
 });
