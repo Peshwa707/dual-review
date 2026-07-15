@@ -6,7 +6,7 @@ The idea is simple and load-bearing: the implementer and the reviewer should nev
 
 ## Status
 
-**v0 — orchestration skeleton.** The pipeline runs end-to-end with a deterministic mock (`echo`) adapter so the flow is testable with zero external model calls. Real vendor adapters (Claude Code, Codex, Cursor, long-context models) land in v1.
+**v1 complete.** Real cross-vendor builds run end-to-end: a real model implements, a different-vendor model reviews, and an ordered **gate registry** verifies (short-circuiting on the first failure; gates fail closed). Codex and Claude adapters shell out to `codex exec` / `claude -p` with the prompt on stdin and pinned tool posture. The `echo` mock adapter remains for hermetic tests and dry runs (a mock run is labelled so it can't pass as a real cross-vendor review). See `docs/V1_SCOPE.md` for what shipped and what's deferred to v2 (sandboxing, more gates, extra adapters).
 
 ## The pipeline
 
