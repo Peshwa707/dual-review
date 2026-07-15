@@ -23,4 +23,22 @@ describe("assertTask", () => {
       assertTask({ id: "x", prompt: "p", verify: { command: "e", expect: "e", timeoutMs: 0 } }),
     ).toThrow(/timeoutMs/);
   });
+
+  test("accepts an argv-array command", () => {
+    expect(() =>
+      assertTask({ id: "x", prompt: "p", verify: { command: ["echo", "hi"], expect: "hi" } }),
+    ).not.toThrow();
+  });
+
+  test("rejects an empty argv-array command", () => {
+    expect(() => assertTask({ id: "x", prompt: "p", verify: { command: [], expect: "e" } })).toThrow(
+      /verify\.command/,
+    );
+  });
+
+  test("rejects an invalid env mode", () => {
+    expect(() =>
+      assertTask({ id: "x", prompt: "p", verify: { command: "e", expect: "e", env: "wild" } }),
+    ).toThrow(/verify\.env/);
+  });
 });

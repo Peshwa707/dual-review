@@ -12,10 +12,13 @@ export interface Task {
 
 /** Runtime verification: run a command and assert the expected substring appears in output. */
 export interface VerifySpec {
-  command: string;
+  /** A string runs via `sh -c` (shell). A string[] runs as an argv with no shell (no injection). */
+  command: string | string[];
   expect: string;
   /** Wall-clock limit for the verify command, in ms. Defaults to 30000. */
   timeoutMs?: number;
+  /** "clean" runs the command under a least-privilege env (no inherited secrets). Defaults to "inherit". */
+  env?: "inherit" | "clean";
 }
 
 /** The output of an implementer. */

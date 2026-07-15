@@ -67,7 +67,13 @@ The implementer returns code-as-text; the reviewer returns a `{approved, notes}`
 
 The runtime gate executes `verify.command` via `sh -c`. **v0 assumes the task spec is authored by the operator running it** — the same trust model as a Makefile. Under that assumption `sh -c` is running your own command and no privilege boundary is crossed.
 
-**Do not feed v0 task specs from an untrusted source** (an AI that assembled the spec, a teammate's PR, an issue queue): `verify.command` is then arbitrary code execution with the harness's environment. v1 will treat specs as untrusted by default — dropping `sh -c` for an explicit argv array, scrubbing the environment, and sandboxing execution (no network, resource limits). The runtime gate already bounds each run with a wall-clock timeout and a capped output buffer.
+**Do not feed a shell-string task spec from an untrusted source** (an AI that assembled the spec, a teammate's PR, an issue queue): a string `verify.command` is arbitrary code execution with the harness's environment.
+
+For less-trusted specs, v1.2 adds safer options on `verify`:
+- `command` as a **string[]** runs as a raw argv with **no shell** — shell metacharacters are inert (no injection).
+- `env: "clean"` runs the command under a **least-privilege environment** (OS essentials only, no inherited secrets).
+
+The runtime gate always bounds each run with a wall-clock timeout and a capped output buffer. Full sandboxing (no network, filesystem isolation) and pinning each model adapter's tool posture remain on the roadmap.
 
 ## Roadmap
 

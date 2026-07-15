@@ -3,37 +3,6 @@ import type { Artifact, Task } from "../types";
 /** Default wall-clock budget for a single model CLI call. */
 export const AGENT_TIMEOUT_MS = 120_000;
 
-/** OS/runtime vars every child needs; everything else (including unrelated secrets) is dropped. */
-const BASE_ENV_KEYS = [
-  "PATH",
-  "HOME",
-  "TERM",
-  "LANG",
-  "LC_ALL",
-  "LC_CTYPE",
-  "USER",
-  "LOGNAME",
-  "TMPDIR",
-  "SHELL",
-  "XDG_CONFIG_HOME",
-  "XDG_CACHE_HOME",
-];
-
-/**
- * Build a least-privilege child environment: OS essentials plus the caller's explicit
- * passthrough keys (a vendor's own auth var), and nothing else. Keeps unrelated secrets
- * in the parent environment out of the spawned model CLI. CLAUDECODE is never included,
- * which also un-blocks a nested `claude` call.
- */
-export function allowlistedEnv(passthrough: string[] = []): Record<string, string> {
-  const out: Record<string, string> = {};
-  for (const key of [...BASE_ENV_KEYS, ...passthrough]) {
-    const v = process.env[key];
-    if (v !== undefined) out[key] = v;
-  }
-  return out;
-}
-
 /**
  * Prompt builders shared by every vendor adapter. Keeping them identical is what makes
  * the cross-vendor comparison apples-to-apples — if the review rubric drifts between

@@ -1,9 +1,9 @@
 import { unlink } from "node:fs/promises";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
-import { spawnBounded, type Spawner } from "../spawn";
+import { allowlistedEnv, spawnBounded, type Spawner } from "../spawn";
 import { parseReview } from "./parse";
-import { AGENT_TIMEOUT_MS, allowlistedEnv, buildImplementPrompt, buildReviewPrompt } from "./shared";
+import { AGENT_TIMEOUT_MS, buildImplementPrompt, buildReviewPrompt } from "./shared";
 import type { Adapter } from "./types";
 import type { Artifact, ReviewResult, Task } from "../types";
 

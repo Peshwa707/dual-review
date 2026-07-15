@@ -16,13 +16,22 @@ export function assertTask(x: unknown): asserts x is Task {
     throw new Error("invalid task: 'verify' must be an object");
   }
   const v = t.verify as Record<string, unknown>;
-  if (typeof v.command !== "string" || v.command.length === 0) {
-    throw new Error("invalid task: 'verify.command' must be a non-empty string");
+  if (typeof v.command === "string") {
+    if (v.command.length === 0) throw new Error("invalid task: 'verify.command' string must be non-empty");
+  } else if (Array.isArray(v.command)) {
+    if (v.command.length === 0 || !v.command.every((c) => typeof c === "string")) {
+      throw new Error("invalid task: 'verify.command' array must be non-empty strings");
+    }
+  } else {
+    throw new Error("invalid task: 'verify.command' must be a string or string[]");
   }
   if (typeof v.expect !== "string") {
     throw new Error("invalid task: 'verify.expect' must be a string");
   }
   if (v.timeoutMs !== undefined && (typeof v.timeoutMs !== "number" || v.timeoutMs <= 0)) {
     throw new Error("invalid task: 'verify.timeoutMs' must be a positive number");
+  }
+  if (v.env !== undefined && v.env !== "inherit" && v.env !== "clean") {
+    throw new Error("invalid task: 'verify.env' must be \"inherit\" or \"clean\"");
   }
 }

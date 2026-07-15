@@ -29,4 +29,26 @@ describe("runtimeGate", () => {
     expect(g.status).toBe("fail");
     expect(g.evidence).toContain("timed out");
   });
+
+  test("runs an argv-array command with no shell", async () => {
+    const g = await runtimeGate({ id: "t", prompt: "p", verify: { command: ["echo", "hi"], expect: "hi" } });
+    expect(g.status).toBe("pass");
+    expect(g.evidence).toContain("shell=false");
+  });
+
+  test("shell metacharacters in an argv command are inert (no injection)", async () => {
+    // If this were `sh -c`, the `;` would run a second command. As argv, it's a literal echo arg.
+    const g = await runtimeGate({ id: "t", prompt: "p", verify: { command: ["echo", "a; echo b"], expect: "a; echo b" } });
+    expect(g.status).toBe("pass");
+  });
+
+  test("runs under a clean (least-privilege) env when requested", async () => {
+    const g = await runtimeGate({
+      id: "t",
+      prompt: "p",
+      verify: { command: ["sh", "-c", "echo $HOME"], expect: "/", env: "clean" },
+    });
+    expect(g.status).toBe("pass"); // HOME survives the allowlist
+    expect(g.evidence).toContain("env=clean");
+  });
 });
