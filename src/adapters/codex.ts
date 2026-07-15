@@ -2,6 +2,7 @@ import { unlink } from "node:fs/promises";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
 import { spawnBounded, type Spawner } from "../spawn";
+import { parseReview } from "./parse";
 import type { Adapter } from "./types";
 import type { Artifact, ReviewResult, Task } from "../types";
 
@@ -56,25 +57,6 @@ export function defaultCodexRunner(
       await unlink(outFile).catch(() => {});
     }
   };
-}
-
-/** Strip a ```json ... ``` fence if the model wrapped its JSON. Returns the first fenced block. */
-function stripFences(s: string): string {
-  const m = s.trim().match(/```(?:json)?\s*([\s\S]*?)```/);
-  return (m && m[1] ? m[1] : s).trim();
-}
-
-/** Parse a review verdict; fail CLOSED (approved: false) on anything unparseable or wrong-typed. */
-export function parseReview(raw: string): { approved: boolean; notes: string } {
-  try {
-    const obj = JSON.parse(stripFences(raw)) as { approved?: unknown; notes?: unknown };
-    if (typeof obj.approved === "boolean") {
-      return { approved: obj.approved, notes: typeof obj.notes === "string" ? obj.notes : "" };
-    }
-  } catch {
-    // fall through to fail-closed
-  }
-  return { approved: false, notes: `unparseable review output: ${raw.slice(0, 200)}` };
 }
 
 /**

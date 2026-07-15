@@ -37,19 +37,24 @@ A task is JSON:
 }
 ```
 
-### Running with a real model (v1.0)
+### Running with real models
 
-The Codex adapter shells out to `codex exec` (requires the `codex` CLI installed and authed). Select adapters via env vars:
+Adapters shell out to the vendor CLIs (`codex exec`, `claude -p`) — install and auth them first. Turn a vendor live and pick who implements vs. reviews via env vars:
 
 ```bash
-# real Codex implements, mock reviewer approves, runtime gate verifies
+# real Codex implements, mock reviewer, runtime gate verifies
 DR_CODEX_LIVE=1 DR_IMPLEMENTER=codex DR_REVIEWER=claude bun run src/cli.ts run examples/toy.json
+
+# first real-vs-real cross-vendor pair: Claude implements, Codex reviews
+DR_CLAUDE_LIVE=1 DR_CODEX_LIVE=1 DR_IMPLEMENTER=claude DR_REVIEWER=codex bun run src/cli.ts run examples/toy.json
 ```
 
-- `DR_CODEX_LIVE=1` — use the real Codex adapter instead of the mock.
-- `DR_IMPLEMENTER` / `DR_REVIEWER` — pick vendors (`claude` is still a mock until the v1.1 Claude adapter). Implementer and reviewer must be different vendors.
+- `DR_CLAUDE_LIVE=1` / `DR_CODEX_LIVE=1` — use the real adapter instead of the mock.
+- `DR_IMPLEMENTER` / `DR_REVIEWER` — pick vendors; they must differ. A run that used any mock prints `VERDICT: … (MOCK RUN — not a real cross-vendor review)`.
 
-The implementer returns code-as-text; the reviewer returns a schema-constrained `{approved, notes}` verdict and **fails closed** (not approved) on any unparseable output. Live tests run only with `DR_LIVE=1`.
+The implementer returns code-as-text; the reviewer returns a `{approved, notes}` verdict and **fails closed** (not approved) on any unparseable output.
+
+> **Claude adapter gotcha:** `claude` refuses to run nested inside a Claude Code session (`CLAUDECODE` is set). The adapter clears `CLAUDECODE` from the child env, but if you hit issues, run dual-review from a plain shell. Live tests run only with `DR_LIVE=1`.
 
 ## Design principles
 

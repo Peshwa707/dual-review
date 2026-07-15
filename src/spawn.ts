@@ -12,6 +12,8 @@ export interface SpawnOpts {
   timeoutMs: number;
   maxOutputBytes?: number;
   cwd?: string;
+  /** Environment for the child. Defaults to the parent's environment when omitted. */
+  env?: Record<string, string | undefined>;
 }
 
 /** Spawns a child process, injectable so callers can be tested without real processes. */
@@ -40,7 +42,7 @@ async function readCapped(stream: ReadableStream<Uint8Array>, maxBytes: number):
  */
 export const spawnBounded: Spawner = async (argv, opts) => {
   const maxBytes = opts.maxOutputBytes ?? DEFAULT_MAX_OUTPUT_BYTES;
-  const proc = Bun.spawn(argv, { stdout: "pipe", stderr: "pipe", cwd: opts.cwd });
+  const proc = Bun.spawn(argv, { stdout: "pipe", stderr: "pipe", cwd: opts.cwd, env: opts.env });
 
   let timedOut = false;
   const term = setTimeout(() => {

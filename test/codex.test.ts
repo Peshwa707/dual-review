@@ -1,5 +1,6 @@
 import { describe, expect, test } from "bun:test";
-import { codexAdapter, defaultCodexRunner, parseReview } from "../src/adapters/codex";
+import { codexAdapter, defaultCodexRunner } from "../src/adapters/codex";
+import { parseReview } from "../src/adapters/parse";
 import type { CodexRun, CodexRunner } from "../src/adapters/codex";
 import type { BoundedResult, Spawner } from "../src/spawn";
 import type { Task } from "../src/types";

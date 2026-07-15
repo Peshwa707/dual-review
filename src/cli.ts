@@ -1,4 +1,5 @@
 #!/usr/bin/env bun
+import { claudeAdapter } from "./adapters/claude";
 import { codexAdapter } from "./adapters/codex";
 import { echoAdapter } from "./adapters/echo";
 import { runPipeline } from "./pipeline";
@@ -24,7 +25,7 @@ async function main(): Promise<void> {
     reviewer: (process.env.DR_REVIEWER as Vendor) ?? "codex",
   };
   const adapters = {
-    claude: echoAdapter("claude"),
+    claude: process.env.DR_CLAUDE_LIVE ? claudeAdapter() : echoAdapter("claude"),
     codex: process.env.DR_CODEX_LIVE ? codexAdapter() : echoAdapter("codex"),
   };
 
