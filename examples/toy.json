@@ -1,0 +1,5 @@
+{
+  "id": "toy",
+  "prompt": "Make the greeting command print a hello line.",
+  "verify": { "command": "echo hello world", "expect": "hello" }
+}

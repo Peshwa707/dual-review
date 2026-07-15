@@ -1,0 +1,15 @@
+{
+  "name": "dual-review",
+  "version": "0.0.0",
+  "description": "A vendor-agnostic dual-review harness: one model implements, a different-vendor model reviews, then ordered gates (correctness, maintainability, security, runtime) verify the change actually runs.",
+  "type": "module",
+  "bin": { "dual-review": "src/cli.ts" },
+  "scripts": {
+    "test": "bun test",
+    "start": "bun run src/cli.ts"
+  },
+  "license": "MIT",
+  "devDependencies": {
+    "@types/bun": "latest"
+  }
+}
