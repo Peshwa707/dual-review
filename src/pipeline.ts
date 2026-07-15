@@ -47,6 +47,7 @@ export async function runPipeline(
   const review = await rev.review(task, artifact);
   const gates = review.approved ? [await runtimeGate(task)] : [];
   const passed = review.approved && gates.every((g) => g.status === "pass");
+  const mockRun = Boolean(artifact.mock || review.mock);
 
-  return { task: task.id, passed, artifact, review, gates };
+  return { task: task.id, passed, mockRun, artifact, review, gates };
 }

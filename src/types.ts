@@ -54,6 +54,8 @@ export interface PipelineConfig {
 export interface Verdict {
   task: string;
   passed: boolean;
+  /** True if the artifact or review came from a mock adapter — a mock run is NOT a genuine cross-vendor pass. */
+  mockRun: boolean;
   artifact: Artifact;
   review: ReviewResult;
   gates: GateResult[];

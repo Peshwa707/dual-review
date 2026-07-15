@@ -28,9 +28,22 @@ async function main(): Promise<void> {
     codex: process.env.DR_CODEX_LIVE ? codexAdapter() : echoAdapter("codex"),
   };
 
+  // Validate vendor selection at the CLI boundary, not deep in the pipeline.
+  for (const [role, vendor] of [
+    ["DR_IMPLEMENTER", config.implementer],
+    ["DR_REVIEWER", config.reviewer],
+  ] as const) {
+    if (!(vendor in adapters)) {
+      console.error(`unknown ${role} "${vendor}" (known: ${Object.keys(adapters).join(", ")})`);
+      process.exit(2);
+    }
+  }
+
   const verdict = await runPipeline(task, config, adapters);
   console.log(JSON.stringify(verdict, null, 2));
-  console.log(verdict.passed ? "VERDICT: PASS" : "VERDICT: FAIL");
+  // A mock run is never a genuine cross-vendor pass — say so loudly.
+  const note = verdict.mockRun ? " (MOCK RUN — not a real cross-vendor review)" : "";
+  console.log(`VERDICT: ${verdict.passed ? "PASS" : "FAIL"}${note}`);
   process.exit(verdict.passed ? 0 : 1);
 }
 

@@ -1,6 +1,7 @@
 import { describe, expect, test } from "bun:test";
-import { codexAdapter, parseReview } from "../src/adapters/codex";
+import { codexAdapter, defaultCodexRunner, parseReview } from "../src/adapters/codex";
 import type { CodexRun, CodexRunner } from "../src/adapters/codex";
+import type { BoundedResult, Spawner } from "../src/spawn";
 import type { Task } from "../src/types";
 
 const task: Task = { id: "t", prompt: "add two numbers", verify: { command: "echo ok", expect: "ok" } };
@@ -41,12 +42,49 @@ describe("codexAdapter (hermetic — injected runner)", () => {
   });
 });
 
+describe("defaultCodexRunner (hermetic — injected spawn + readOutput)", () => {
+  const spawnReturning = (res: BoundedResult): Spawner => async () => res;
+  const ok: BoundedResult = { exitCode: 0, stdout: "", stderr: "", timedOut: false };
+
+  test("ok when exit 0 and the output file is non-empty", async () => {
+    const run = defaultCodexRunner({ spawn: spawnReturning(ok), readOutput: async () => "answer" });
+    expect(await run("p", {})).toEqual({ ok: true, lastMessage: "answer" });
+  });
+
+  test("fails on timeout", async () => {
+    const run = defaultCodexRunner({ spawn: spawnReturning({ ...ok, timedOut: true }), readOutput: async () => "x" });
+    const r = await run("p", {});
+    expect(r.ok).toBe(false);
+    expect(r.error).toContain("timed out");
+  });
+
+  test("fails on non-zero exit", async () => {
+    const run = defaultCodexRunner({ spawn: spawnReturning({ ...ok, exitCode: 1, stderr: "boom" }), readOutput: async () => "x" });
+    const r = await run("p", {});
+    expect(r.ok).toBe(false);
+    expect(r.error).toContain("exited 1");
+  });
+
+  test("fails when the output file is empty/whitespace", async () => {
+    const run = defaultCodexRunner({ spawn: spawnReturning(ok), readOutput: async () => "   " });
+    const r = await run("p", {});
+    expect(r.ok).toBe(false);
+    expect(r.error).toContain("no output");
+  });
+});
+
 describe("parseReview", () => {
   test("strips a json code fence", () => {
     expect(parseReview('```json\n{"approved":false,"notes":"n"}\n```')).toEqual({ approved: false, notes: "n" });
   });
   test("fails closed on garbage", () => {
     expect(parseReview("nope").approved).toBe(false);
+  });
+  test("fails closed on well-formed JSON with a non-boolean 'approved'", () => {
+    expect(parseReview('{"approved":"yes","notes":"n"}').approved).toBe(false);
+  });
+  test("defaults notes to an empty string when missing", () => {
+    expect(parseReview('{"approved":true}')).toEqual({ approved: true, notes: "" });
   });
 });
 

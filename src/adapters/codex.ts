@@ -1,5 +1,7 @@
+import { unlink } from "node:fs/promises";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
+import { spawnBounded, type Spawner } from "../spawn";
 import type { Adapter } from "./types";
 import type { Artifact, ReviewResult, Task } from "../types";
 
@@ -26,50 +28,43 @@ function tmpOut(): string {
 /**
  * Default runner: shells to `codex exec` via an argv array (no shell interpolation),
  * runs read-only, and reads the agent's final message from the `-o` output file.
+ * `spawn` and `readOutput` are injectable so the timeout/exit/empty-output branches are testable.
  */
-export function defaultCodexRunner(model?: string): CodexRunner {
-  return async (prompt, opts) => {
+export function defaultCodexRunner(
+  opts: { model?: string; spawn?: Spawner; readOutput?: (path: string) => Promise<string> } = {},
+): CodexRunner {
+  const spawn = opts.spawn ?? spawnBounded;
+  const readOutput = opts.readOutput ?? ((p) => Bun.file(p).text().catch(() => ""));
+
+  return async (prompt, runOpts) => {
     const outFile = tmpOut();
     const args = ["exec", "-s", "read-only", "--skip-git-repo-check", "-o", outFile];
-    if (model) args.push("-m", model);
-    if (opts.schemaPath) args.push("--output-schema", opts.schemaPath);
+    if (opts.model) args.push("-m", opts.model);
+    if (runOpts.schemaPath) args.push("--output-schema", runOpts.schemaPath);
     args.push(prompt);
 
-    const proc = Bun.spawn(["codex", ...args], { stdout: "pipe", stderr: "pipe" });
-    let timedOut = false;
-    const timer = setTimeout(() => {
-      timedOut = true;
-      proc.kill();
-    }, opts.timeoutMs ?? DEFAULT_TIMEOUT_MS);
-
     try {
-      // Drain both streams so the pipe never blocks; the final answer comes from the -o file.
-      const [, stderr] = await Promise.all([
-        new Response(proc.stdout).text(),
-        new Response(proc.stderr).text(),
-      ]);
-      await proc.exited;
-
-      if (timedOut) return { ok: false, lastMessage: "", error: "codex exec timed out" };
-      if (proc.exitCode !== 0) {
-        return { ok: false, lastMessage: "", error: `codex exec exited ${proc.exitCode}: ${stderr.slice(0, 500)}` };
+      const r = await spawn(["codex", ...args], { timeoutMs: runOpts.timeoutMs ?? DEFAULT_TIMEOUT_MS });
+      if (r.timedOut) return { ok: false, lastMessage: "", error: "codex exec timed out" };
+      if (r.exitCode !== 0) {
+        return { ok: false, lastMessage: "", error: `codex exec exited ${r.exitCode}: ${r.stderr.slice(0, 500)}` };
       }
-      const lastMessage = (await Bun.file(outFile).text().catch(() => "")).trim();
+      const lastMessage = (await readOutput(outFile)).trim();
       if (!lastMessage) return { ok: false, lastMessage: "", error: "codex exec produced no output" };
       return { ok: true, lastMessage };
     } finally {
-      clearTimeout(timer);
+      await unlink(outFile).catch(() => {});
     }
   };
 }
 
-/** Strip a ```json ... ``` fence if the model wrapped its JSON. */
+/** Strip a ```json ... ``` fence if the model wrapped its JSON. Returns the first fenced block. */
 function stripFences(s: string): string {
   const m = s.trim().match(/```(?:json)?\s*([\s\S]*?)```/);
   return (m && m[1] ? m[1] : s).trim();
 }
 
-/** Parse a review verdict; fail CLOSED (approved: false) on anything unparseable. */
+/** Parse a review verdict; fail CLOSED (approved: false) on anything unparseable or wrong-typed. */
 export function parseReview(raw: string): { approved: boolean; notes: string } {
   try {
     const obj = JSON.parse(stripFences(raw)) as { approved?: unknown; notes?: unknown };
@@ -85,10 +80,16 @@ export function parseReview(raw: string): { approved: boolean; notes: string } {
 /**
  * Real Codex adapter (v1.0). Implements by asking Codex for code-as-text; reviews by
  * asking for a structured {approved, notes} verdict constrained to a JSON schema.
+ *
+ * NOTE: the reviewer prompt interpolates model-generated `artifact.content`, so a
+ * schema-valid but adversarial `{"approved":true}` can be induced (prompt injection).
+ * The schema + fail-closed parsing defend against malformed output, not against a model
+ * that is successfully convinced — hardening this is tracked for a later slice.
+ *
  * Pass a fake `run` to unit-test the logic without invoking the CLI.
  */
 export function codexAdapter(opts: { run?: CodexRunner; model?: string } = {}): Adapter {
-  const run = opts.run ?? defaultCodexRunner(opts.model);
+  const run = opts.run ?? defaultCodexRunner({ model: opts.model });
   return {
     vendor: "codex",
     async implement(task: Task): Promise<Artifact> {

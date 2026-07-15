@@ -35,6 +35,7 @@ describe("runPipeline v0", () => {
     expect(v.passed).toBe(true);
     expect(v.review.approved).toBe(true);
     expect(v.gates[0]?.status).toBe("pass");
+    expect(v.mockRun).toBe(true); // echo adapters are mocks — never a genuine cross-vendor pass
   });
 
   test("fails when the runtime expectation is not met", async () => {
