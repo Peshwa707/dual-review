@@ -75,7 +75,7 @@ For less-trusted specs, v1.2 adds safer options on `verify`:
 
 The runtime gate always bounds each run with a wall-clock timeout and a capped output buffer.
 
-Each model adapter now runs **tool-restricted** (Codex `-s read-only`; Claude `--disallowedTools` blocking file/command/web tools) and receives its prompt via **stdin, never argv**. Still on the roadmap: full sandboxing (network + filesystem isolation) and killing orphaned processes on timeout (a backgrounded grandchild under `sh -c` can currently outlive the gate — prefer argv-array commands).
+Each model adapter now runs **tool-restricted** — Codex `-s read-only`; Claude **deny-by-default** (empty `--allowedTools` so no built-in or MCP tool is auto-permitted, plus `--strict-mcp-config` to ignore ambient MCP servers) — and receives its prompt via **stdin, never argv** (so a prompt that looks like a flag can't be re-parsed as one). Still on the roadmap: full sandboxing (network + filesystem isolation) and killing orphaned processes on timeout (a backgrounded grandchild under `sh -c` can currently outlive the gate — prefer argv-array commands).
 
 ## Roadmap
 

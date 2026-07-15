@@ -1,4 +1,4 @@
-import { unlink } from "node:fs/promises";
+import { mkdtemp, rm } from "node:fs/promises";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
 import { allowlistedEnv, spawnBounded, type Spawner } from "../spawn";
@@ -22,9 +22,10 @@ export interface CodexRunner {
   (prompt: string, opts: { schemaPath?: string; timeoutMs?: number }): Promise<CodexRun>;
 }
 
-let tmpCounter = 0;
-function tmpOut(): string {
-  return join(tmpdir(), `dual-review-codex-${process.pid}-${tmpCounter++}.out`);
+/** Create a private 0700 temp dir for the `-o` output file (not a world-readable shared-tmp file). */
+async function tmpOut(): Promise<{ file: string; dir: string }> {
+  const dir = await mkdtemp(join(tmpdir(), "dual-review-codex-"));
+  return { file: join(dir, "out"), dir };
 }
 
 /**
@@ -39,7 +40,7 @@ export function defaultCodexRunner(
   const readOutput = opts.readOutput ?? ((p) => Bun.file(p).text().catch(() => ""));
 
   return async (prompt, runOpts) => {
-    const outFile = tmpOut();
+    const { file: outFile, dir } = await tmpOut();
     const args = ["exec", "-s", "read-only", "--skip-git-repo-check", "-o", outFile];
     if (opts.model) args.push("-m", opts.model);
     if (runOpts.schemaPath) args.push("--output-schema", runOpts.schemaPath);
@@ -61,7 +62,7 @@ export function defaultCodexRunner(
     } catch (err) {
       return { ok: false, lastMessage: "", error: `codex spawn failed: ${err instanceof Error ? err.message : String(err)}` };
     } finally {
-      await unlink(outFile).catch(() => {});
+      await rm(dir, { recursive: true, force: true }).catch(() => {});
     }
   };
 }

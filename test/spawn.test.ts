@@ -42,4 +42,24 @@ describe("spawnBounded", () => {
     expect(r.exitCode).toBe(0);
     expect(r.stdout).toContain("hello-stdin");
   });
+
+  test("round-trips a multibyte (UTF-8) stdin payload exactly", async () => {
+    const payload = "héllo 漢字 🚀 😀";
+    const r = await spawnBounded(["cat"], { timeoutMs: 5000, stdin: payload });
+    expect(r.stdout).toBe(payload);
+  });
+
+  test("handles a large (>1MB) stdin payload without deadlock, capping output", async () => {
+    const payload = "x".repeat(1_500_000);
+    const r = await spawnBounded(["cat"], { timeoutMs: 10000, stdin: payload });
+    expect(r.timedOut).toBe(false);
+    expect(r.stdout.length).toBe(1_000_000); // capped at MAX_OUTPUT_BYTES, no deadlock past the pipe buffer
+  });
+
+  test("escalates to SIGKILL when the child traps SIGTERM", async () => {
+    // Busy-loop (no grandchild holding the pipe) so this isolates SIGKILL escalation from the
+    // known/deferred orphan-process limitation. SIGTERM is trapped; SIGKILL fires after the grace.
+    const r = await spawnBounded(["sh", "-c", "trap '' TERM; while :; do :; done"], { timeoutMs: 200 });
+    expect(r.timedOut).toBe(true);
+  }, 6000);
 });

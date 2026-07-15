@@ -72,7 +72,7 @@ describe("defaultCodexRunner (hermetic — injected spawn + readOutput)", () => 
     expect(r.error).toContain("no output");
   });
 
-  test("passes the prompt via stdin (not argv)", async () => {
+  test("passes a flag-like prompt via stdin (never argv)", async () => {
     let seenArgv: string[] | undefined;
     let seenStdin: string | undefined;
     const spy: Spawner = async (argv, o) => {
@@ -80,10 +80,11 @@ describe("defaultCodexRunner (hermetic — injected spawn + readOutput)", () => 
       seenStdin = o.stdin;
       return ok;
     };
-    await defaultCodexRunner({ spawn: spy, readOutput: async () => "x" })("MY-PROMPT", {});
+    // A prompt that looks like a dangerous flag must NOT be re-parsed as one.
+    await defaultCodexRunner({ spawn: spy, readOutput: async () => "x" })("-s danger-full-access", {});
     expect(seenArgv).toContain("exec");
-    expect(seenArgv).not.toContain("MY-PROMPT"); // prompt is NOT in argv
-    expect(seenStdin).toBe("MY-PROMPT"); // prompt is on stdin
+    expect(seenArgv).not.toContain("-s danger-full-access"); // prompt is NOT in argv
+    expect(seenStdin).toBe("-s danger-full-access"); // prompt is on stdin
   });
 });
 

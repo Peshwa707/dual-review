@@ -6,22 +6,13 @@ import type { Artifact, ReviewResult, Task } from "../types";
 
 const CLAUDE_ENV_PASSTHROUGH = ["ANTHROPIC_API_KEY", "CLAUDE_CODE_OAUTH_TOKEN", "ANTHROPIC_AUTH_TOKEN"];
 
-// Code-as-text needs no tools. Block every file/command/web/task tool so `claude -p` can only
-// produce text — the posture-equivalent of Codex's `-s read-only`.
-const CLAUDE_DISALLOWED_TOOLS = [
-  "Bash",
-  "Edit",
-  "MultiEdit",
-  "Write",
-  "Read",
-  "Glob",
-  "Grep",
-  "NotebookEdit",
-  "WebFetch",
-  "WebSearch",
-  "Task",
-  "TodoWrite",
-];
+// Code-as-text needs no tools. Deny-by-default beats a denylist: an EMPTY --allowedTools means no
+// built-in tool is auto-permitted (and nothing is grantable in non-interactive -p), which also
+// covers MCP (mcp__*) and any future tool a name-denylist would miss. --strict-mcp-config makes the
+// child ignore the operator's ambient MCP servers otherwise loaded via inherited HOME.
+// Best-available application-level restriction; the runtime denial in -p is not live-verified from a
+// nested Claude Code session (see the deferred Claude live path).
+const CLAUDE_TOOL_LOCK = ["--allowedTools", "", "--strict-mcp-config"];
 
 /** Result of one `claude -p` invocation (its printed text). */
 export interface ClaudeRun {
@@ -44,9 +35,9 @@ export interface ClaudeRunner {
 export function defaultClaudeRunner(opts: { model?: string; spawn?: Spawner } = {}): ClaudeRunner {
   const spawn = opts.spawn ?? spawnBounded;
   return async (prompt, runOpts) => {
-    const args = ["-p", "--output-format", "text", "--disallowedTools", ...CLAUDE_DISALLOWED_TOOLS];
+    const args = ["-p", "--output-format", "text", ...CLAUDE_TOOL_LOCK];
     if (opts.model) args.push("--model", opts.model);
-    // Prompt via stdin (no positional) so the variadic --disallowedTools can't consume it.
+    // Prompt via stdin (no positional) so the variadic --allowedTools can't consume it.
 
     try {
       const r = await spawn(["claude", ...args], {

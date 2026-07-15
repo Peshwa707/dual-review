@@ -91,7 +91,7 @@ describe("defaultClaudeRunner (hermetic — injected spawn)", () => {
     expect(seenEnv !== undefined && "CLAUDECODE" in seenEnv).toBe(false);
   });
 
-  test("passes the prompt via stdin (not argv) and pins disallowed tools", async () => {
+  test("passes a flag-like prompt via stdin (never argv) and pins deny-by-default tool posture", async () => {
     let seenArgv: string[] | undefined;
     let seenStdin: string | undefined;
     const spy: Spawner = async (argv, o) => {
@@ -99,11 +99,12 @@ describe("defaultClaudeRunner (hermetic — injected spawn)", () => {
       seenStdin = o.stdin;
       return ok;
     };
-    await defaultClaudeRunner({ spawn: spy })("MY-PROMPT", {});
+    // A prompt that looks like a dangerous flag must NOT be re-parsed as one.
+    await defaultClaudeRunner({ spawn: spy })("--dangerously-skip-permissions", {});
     expect(seenArgv?.slice(0, 4)).toEqual(["claude", "-p", "--output-format", "text"]);
-    expect(seenArgv).toContain("--disallowedTools");
-    expect(seenArgv).toContain("Bash");
-    expect(seenArgv).not.toContain("MY-PROMPT"); // prompt is NOT in argv
-    expect(seenStdin).toBe("MY-PROMPT"); // prompt is on stdin
+    expect(seenArgv).toContain("--allowedTools"); // deny-by-default allowlist
+    expect(seenArgv).toContain("--strict-mcp-config"); // ignore ambient MCP servers
+    expect(seenArgv).not.toContain("--dangerously-skip-permissions"); // prompt not in argv
+    expect(seenStdin).toBe("--dangerously-skip-permissions"); // prompt on stdin
   });
 });
