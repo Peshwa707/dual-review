@@ -1,6 +1,7 @@
 import type { Adapter } from "./adapters/types";
-import { runtimeGate } from "./gates/runtime";
-import type { PipelineConfig, Task, Verdict } from "./types";
+import { runtimeGateDef } from "./gates/runtime";
+import type { Gate } from "./gates/types";
+import type { GateResult, PipelineConfig, Task, Verdict } from "./types";
 
 /** Thrown when the same vendor would both implement and review (violates cross-vendor invariant). */
 export class CrossVendorError extends Error {}
@@ -14,6 +15,7 @@ export async function runPipeline(
   task: Task,
   config: PipelineConfig,
   adapters: Record<string, Adapter>,
+  gates: Gate[] = [runtimeGateDef],
 ): Promise<Verdict> {
   if (config.implementer === config.reviewer) {
     throw new CrossVendorError(
@@ -45,9 +47,18 @@ export async function runPipeline(
 
   const artifact = await impl.implement(task);
   const review = await rev.review(task, artifact);
-  const gates = review.approved ? [await runtimeGate(task)] : [];
-  const passed = review.approved && gates.every((g) => g.status === "pass");
+
+  // Run gates in order, short-circuiting on the first failure. No gates run if review rejected.
+  const gateResults: GateResult[] = [];
+  if (review.approved) {
+    for (const gate of gates) {
+      const result = await gate.run(task);
+      gateResults.push(result);
+      if (result.status !== "pass") break;
+    }
+  }
+  const passed = review.approved && gateResults.every((g) => g.status === "pass");
   const mockRun = Boolean(artifact.mock || review.mock);
 
-  return { task: task.id, passed, mockRun, artifact, review, gates };
+  return { task: task.id, passed, mockRun, artifact, review, gates: gateResults };
 }

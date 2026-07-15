@@ -1,5 +1,6 @@
 import { allowlistedEnv, spawnBounded, type SpawnOpts } from "../spawn";
 import type { GateResult, Task } from "../types";
+import type { Gate } from "./types";
 
 const DEFAULT_TIMEOUT_MS = 30_000;
 
@@ -39,3 +40,6 @@ export async function runtimeGate(task: Task): Promise<GateResult> {
     evidence: `exit=${r.exitCode} expect=${JSON.stringify(expect)} found=${found} shell=${shell} env=${env ?? "inherit"}`,
   };
 }
+
+/** The runtime gate as a registered Gate (the pipeline's default). */
+export const runtimeGateDef: Gate = { name: "runtime", run: runtimeGate };
