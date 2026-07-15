@@ -14,6 +14,8 @@ export interface Task {
 export interface VerifySpec {
   command: string;
   expect: string;
+  /** Wall-clock limit for the verify command, in ms. Defaults to 30000. */
+  timeoutMs?: number;
 }
 
 /** The output of an implementer (a stub in v0; real diffs/files land in v1+). */

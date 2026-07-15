@@ -44,10 +44,16 @@ A task is JSON:
 - **Small, ordered gates** — rigor scales with stakes; gates run in sequence and short-circuit.
 - **Adapters, not lock-in** — any model/tool that can implement or review plugs in behind one interface.
 
+## Security & trust model
+
+The runtime gate executes `verify.command` via `sh -c`. **v0 assumes the task spec is authored by the operator running it** — the same trust model as a Makefile. Under that assumption `sh -c` is running your own command and no privilege boundary is crossed.
+
+**Do not feed v0 task specs from an untrusted source** (an AI that assembled the spec, a teammate's PR, an issue queue): `verify.command` is then arbitrary code execution with the harness's environment. v1 will treat specs as untrusted by default — dropping `sh -c` for an explicit argv array, scrubbing the environment, and sandboxing execution (no network, resource limits). The runtime gate already bounds each run with a wall-clock timeout and a capped output buffer.
+
 ## Roadmap
 
 - **v1** — real adapters: Claude Code, Codex (`codex exec`), Cursor, long-context models.
-- **v1** — maintainability + security gates ahead of the runtime gate.
+- **v1** — maintainability + security gates ahead of the runtime gate; untrusted-spec sandboxing (argv not `sh -c`, scrubbed env, no network).
 - **v2** — best-of-N implementations with a judge; per-project quality rubric; teach-by-example exemplars.
 
 ## License

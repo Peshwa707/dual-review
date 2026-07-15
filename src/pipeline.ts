@@ -25,6 +25,24 @@ export async function runPipeline(
   if (!impl) throw new Error(`no adapter registered for implementer "${config.implementer}"`);
   if (!rev) throw new Error(`no adapter registered for reviewer "${config.reviewer}"`);
 
+  // The invariant must hold on the adapters' REAL identity, not just the config keys —
+  // a codex adapter registered under the "claude" key must not slip through as "cross-vendor".
+  if (impl.vendor !== config.implementer) {
+    throw new CrossVendorError(
+      `adapter under key "${config.implementer}" reports vendor "${impl.vendor}"`,
+    );
+  }
+  if (rev.vendor !== config.reviewer) {
+    throw new CrossVendorError(
+      `adapter under key "${config.reviewer}" reports vendor "${rev.vendor}"`,
+    );
+  }
+  if (impl.vendor === rev.vendor) {
+    throw new CrossVendorError(
+      `implementer and reviewer resolved to the same vendor "${impl.vendor}"`,
+    );
+  }
+
   const artifact = await impl.implement(task);
   const review = await rev.review(task, artifact);
   const gates = review.approved ? [await runtimeGate(task)] : [];
