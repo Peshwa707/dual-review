@@ -6,6 +6,23 @@ import type { Artifact, ReviewResult, Task } from "../types";
 
 const CLAUDE_ENV_PASSTHROUGH = ["ANTHROPIC_API_KEY", "CLAUDE_CODE_OAUTH_TOKEN", "ANTHROPIC_AUTH_TOKEN"];
 
+// Code-as-text needs no tools. Block every file/command/web/task tool so `claude -p` can only
+// produce text — the posture-equivalent of Codex's `-s read-only`.
+const CLAUDE_DISALLOWED_TOOLS = [
+  "Bash",
+  "Edit",
+  "MultiEdit",
+  "Write",
+  "Read",
+  "Glob",
+  "Grep",
+  "NotebookEdit",
+  "WebFetch",
+  "WebSearch",
+  "Task",
+  "TodoWrite",
+];
+
 /** Result of one `claude -p` invocation (its printed text). */
 export interface ClaudeRun {
   ok: boolean;
@@ -27,14 +44,15 @@ export interface ClaudeRunner {
 export function defaultClaudeRunner(opts: { model?: string; spawn?: Spawner } = {}): ClaudeRunner {
   const spawn = opts.spawn ?? spawnBounded;
   return async (prompt, runOpts) => {
-    const args = ["-p", "--output-format", "text"];
+    const args = ["-p", "--output-format", "text", "--disallowedTools", ...CLAUDE_DISALLOWED_TOOLS];
     if (opts.model) args.push("--model", opts.model);
-    args.push(prompt);
+    // Prompt via stdin (no positional) so the variadic --disallowedTools can't consume it.
 
     try {
       const r = await spawn(["claude", ...args], {
         timeoutMs: runOpts.timeoutMs ?? AGENT_TIMEOUT_MS,
         env: allowlistedEnv(CLAUDE_ENV_PASSTHROUGH),
+        stdin: prompt,
       });
       if (r.timedOut) return { ok: false, text: "", error: "claude timed out" };
       if (r.exitCode !== 0) return { ok: false, text: "", error: `claude exited ${r.exitCode}: ${r.stderr.slice(0, 500)}` };

@@ -14,6 +14,8 @@ export interface SpawnOpts {
   cwd?: string;
   /** Environment for the child. Defaults to the parent's environment when omitted. */
   env?: Record<string, string | undefined>;
+  /** If set, written to the child's stdin (then closed). Keeps model-controlled text out of argv. */
+  stdin?: string;
 }
 
 /** Spawns a child process, injectable so callers can be tested without real processes. */
@@ -77,9 +79,15 @@ export const spawnBounded: Spawner = async (argv, opts) => {
   const maxBytes = opts.maxOutputBytes ?? DEFAULT_MAX_OUTPUT_BYTES;
   // Omit `env` entirely when not overriding — passing `env: undefined` gives Bun an EMPTY
   // environment, which silently breaks inheritance. Only set it for an explicit override.
-  const proc = opts.env
-    ? Bun.spawn(argv, { stdout: "pipe", stderr: "pipe", cwd: opts.cwd, env: opts.env })
-    : Bun.spawn(argv, { stdout: "pipe", stderr: "pipe", cwd: opts.cwd });
+  const io = {
+    stdout: "pipe" as const,
+    stderr: "pipe" as const,
+    cwd: opts.cwd,
+    ...(opts.stdin !== undefined ? { stdin: new TextEncoder().encode(opts.stdin) } : {}),
+  };
+  // NOTE: on timeout we signal the direct child only. A backgrounded grandchild under
+  // `sh -c` can outlive the gate — prefer argv commands, or a future sandboxed slice.
+  const proc = opts.env ? Bun.spawn(argv, { ...io, env: opts.env }) : Bun.spawn(argv, io);
 
   let timedOut = false;
   const term = setTimeout(() => {

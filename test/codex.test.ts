@@ -71,6 +71,20 @@ describe("defaultCodexRunner (hermetic — injected spawn + readOutput)", () => 
     expect(r.ok).toBe(false);
     expect(r.error).toContain("no output");
   });
+
+  test("passes the prompt via stdin (not argv)", async () => {
+    let seenArgv: string[] | undefined;
+    let seenStdin: string | undefined;
+    const spy: Spawner = async (argv, o) => {
+      seenArgv = argv;
+      seenStdin = o.stdin;
+      return ok;
+    };
+    await defaultCodexRunner({ spawn: spy, readOutput: async () => "x" })("MY-PROMPT", {});
+    expect(seenArgv).toContain("exec");
+    expect(seenArgv).not.toContain("MY-PROMPT"); // prompt is NOT in argv
+    expect(seenStdin).toBe("MY-PROMPT"); // prompt is on stdin
+  });
 });
 
 // Live test — only runs with DR_LIVE=1 and a working, authed `codex` CLI.

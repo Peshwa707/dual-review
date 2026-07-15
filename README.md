@@ -73,7 +73,9 @@ For less-trusted specs, v1.2 adds safer options on `verify`:
 - `command` as a **string[]** runs as a raw argv with **no shell** — shell metacharacters are inert (no injection).
 - `env: "clean"` drops **inherited environment variables** (OS essentials only). Note: on-disk credentials under `$HOME` stay reachable until filesystem isolation lands — this closes the env-var channel, not the file channel.
 
-The runtime gate always bounds each run with a wall-clock timeout and a capped output buffer. Full sandboxing (no network, filesystem isolation) and pinning each model adapter's tool posture remain on the roadmap.
+The runtime gate always bounds each run with a wall-clock timeout and a capped output buffer.
+
+Each model adapter now runs **tool-restricted** (Codex `-s read-only`; Claude `--disallowedTools` blocking file/command/web tools) and receives its prompt via **stdin, never argv**. Still on the roadmap: full sandboxing (network + filesystem isolation) and killing orphaned processes on timeout (a backgrounded grandchild under `sh -c` can currently outlive the gate — prefer argv-array commands).
 
 ## Roadmap
 

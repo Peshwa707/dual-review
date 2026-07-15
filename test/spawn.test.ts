@@ -36,4 +36,10 @@ describe("spawnBounded", () => {
     const r = await spawnBounded(["sh", "-c", "sleep 5"], { timeoutMs: 150 });
     expect(r.timedOut).toBe(true);
   });
+
+  test("feeds stdin to the child", async () => {
+    const r = await spawnBounded(["cat"], { timeoutMs: 5000, stdin: "hello-stdin" });
+    expect(r.exitCode).toBe(0);
+    expect(r.stdout).toContain("hello-stdin");
+  });
 });

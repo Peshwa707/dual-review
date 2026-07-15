@@ -91,14 +91,19 @@ describe("defaultClaudeRunner (hermetic — injected spawn)", () => {
     expect(seenEnv !== undefined && "CLAUDECODE" in seenEnv).toBe(false);
   });
 
-  test("builds a safe argv with the prompt as the final single element", async () => {
+  test("passes the prompt via stdin (not argv) and pins disallowed tools", async () => {
     let seenArgv: string[] | undefined;
-    const spy: Spawner = async (argv, _o) => {
+    let seenStdin: string | undefined;
+    const spy: Spawner = async (argv, o) => {
       seenArgv = argv;
+      seenStdin = o.stdin;
       return ok;
     };
     await defaultClaudeRunner({ spawn: spy })("MY-PROMPT", {});
     expect(seenArgv?.slice(0, 4)).toEqual(["claude", "-p", "--output-format", "text"]);
-    expect(seenArgv?.at(-1)).toBe("MY-PROMPT");
+    expect(seenArgv).toContain("--disallowedTools");
+    expect(seenArgv).toContain("Bash");
+    expect(seenArgv).not.toContain("MY-PROMPT"); // prompt is NOT in argv
+    expect(seenStdin).toBe("MY-PROMPT"); // prompt is on stdin
   });
 });

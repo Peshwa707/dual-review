@@ -43,12 +43,13 @@ export function defaultCodexRunner(
     const args = ["exec", "-s", "read-only", "--skip-git-repo-check", "-o", outFile];
     if (opts.model) args.push("-m", opts.model);
     if (runOpts.schemaPath) args.push("--output-schema", runOpts.schemaPath);
-    args.push(prompt);
+    // Prompt via stdin (no positional) so no model-controlled text lands in argv.
 
     try {
       const r = await spawn(["codex", ...args], {
         timeoutMs: runOpts.timeoutMs ?? AGENT_TIMEOUT_MS,
         env: allowlistedEnv(CODEX_ENV_PASSTHROUGH),
+        stdin: prompt,
       });
       if (r.timedOut) return { ok: false, lastMessage: "", error: "codex exec timed out" };
       if (r.exitCode !== 0) {
