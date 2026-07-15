@@ -37,6 +37,20 @@ A task is JSON:
 }
 ```
 
+### Running with a real model (v1.0)
+
+The Codex adapter shells out to `codex exec` (requires the `codex` CLI installed and authed). Select adapters via env vars:
+
+```bash
+# real Codex implements, mock reviewer approves, runtime gate verifies
+DR_CODEX_LIVE=1 DR_IMPLEMENTER=codex DR_REVIEWER=claude bun run src/cli.ts run examples/toy.json
+```
+
+- `DR_CODEX_LIVE=1` — use the real Codex adapter instead of the mock.
+- `DR_IMPLEMENTER` / `DR_REVIEWER` — pick vendors (`claude` is still a mock until the v1.1 Claude adapter). Implementer and reviewer must be different vendors.
+
+The implementer returns code-as-text; the reviewer returns a schema-constrained `{approved, notes}` verdict and **fails closed** (not approved) on any unparseable output. Live tests run only with `DR_LIVE=1`.
+
 ## Design principles
 
 - **Cross-vendor by construction** — implementer and reviewer are different vendor families.

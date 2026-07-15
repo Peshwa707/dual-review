@@ -18,10 +18,12 @@ export interface VerifySpec {
   timeoutMs?: number;
 }
 
-/** The output of an implementer (a stub in v0; real diffs/files land in v1+). */
+/** The output of an implementer. */
 export interface Artifact {
   content: string;
   by: Vendor;
+  /** True when produced by a mock adapter — so a mock never impersonates a real vendor's output. */
+  mock?: boolean;
 }
 
 /** A cross-vendor reviewer's verdict on an artifact. */
@@ -29,6 +31,8 @@ export interface ReviewResult {
   approved: boolean;
   by: Vendor;
   notes: string;
+  /** True when produced by a mock adapter. */
+  mock?: boolean;
 }
 
 export type GateStatus = "pass" | "fail";
