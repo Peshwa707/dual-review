@@ -51,6 +51,9 @@ DR_CLAUDE_LIVE=1 DR_CODEX_LIVE=1 DR_IMPLEMENTER=claude DR_REVIEWER=codex bun run
 
 - `DR_CLAUDE_LIVE=1` / `DR_CODEX_LIVE=1` — use the real adapter instead of the mock.
 - `DR_IMPLEMENTER` / `DR_REVIEWER` — pick vendors; they must differ. A run that used any mock prints `VERDICT: … (MOCK RUN — not a real cross-vendor review)`.
+- `DR_BEST_OF=<N>` — **best-of-N** (v2): the implementer generates N candidates and the cross-vendor reviewer *judges* the best one before reviewing it. The verdict records `candidates` and the `judge`'s pick. Judging fails closed to candidate 0 on any bad output.
+
+Run `bun run src/cli.ts help` for the full usage.
 
 The implementer returns code-as-text; the reviewer returns a `{approved, notes}` verdict and **fails closed** (not approved) on any unparseable output.
 

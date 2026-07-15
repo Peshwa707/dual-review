@@ -23,3 +23,12 @@ export function buildReviewPrompt(task: Task, artifact: Artifact): string {
     `Artifact:\n${artifact.content}`
   );
 }
+
+export function buildJudgePrompt(task: Task, candidates: Artifact[]): string {
+  const blocks = candidates.map((c, i) => `--- Candidate ${i} ---\n${c.content}`).join("\n\n");
+  return (
+    `Pick the single best implementation of this task: "${task.prompt}".\n` +
+    `Respond ONLY with JSON of the form {"winner": <0-based index>, "notes": string}.\n\n` +
+    blocks
+  );
+}

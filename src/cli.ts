@@ -6,10 +6,36 @@ import { runPipeline } from "./pipeline";
 import { assertTask } from "./task";
 import type { PipelineConfig, Vendor } from "./types";
 
+const HELP = `dual-review — one model implements, a different-vendor model reviews, gates verify.
+
+Usage:
+  dual-review run <task.json>
+  dual-review help
+
+Task JSON:
+  { "id": "...", "prompt": "...",
+    "verify": { "command": "echo hi" | ["echo","hi"], "expect": "hi", "env": "inherit|clean" } }
+
+Environment:
+  DR_IMPLEMENTER=<claude|codex>   who writes the code   (default: claude)
+  DR_REVIEWER=<claude|codex>      who reviews it        (default: codex) — must differ from implementer
+  DR_CLAUDE_LIVE=1                use the real claude CLI (else a mock)
+  DR_CODEX_LIVE=1                 use the real codex CLI  (else a mock)
+  DR_BEST_OF=<N>                  generate N candidates; the reviewer judges the best (default: 1)
+
+Real cross-vendor example (run from a plain shell, NOT inside Claude Code):
+  DR_CLAUDE_LIVE=1 DR_CODEX_LIVE=1 DR_IMPLEMENTER=claude DR_REVIEWER=codex \\
+    bun run src/cli.ts run examples/toy.json
+`;
+
 async function main(): Promise<void> {
   const [cmd, taskPath] = process.argv.slice(2);
+  if (cmd === "help" || cmd === "--help" || cmd === "-h") {
+    console.log(HELP);
+    return;
+  }
   if (cmd !== "run" || !taskPath) {
-    console.error("usage: dual-review run <task.json>");
+    console.error(HELP);
     process.exit(2);
   }
 
@@ -18,7 +44,6 @@ async function main(): Promise<void> {
   const task = raw;
 
   // Adapter registry. A vendor is the real adapter when its DR_*_LIVE flag is set, else a mock.
-  // Select who implements/reviews via DR_IMPLEMENTER / DR_REVIEWER (defaults: claude -> codex).
   const config: PipelineConfig = {
     implementer: (process.env.DR_IMPLEMENTER as Vendor) ?? "claude",
     reviewer: (process.env.DR_REVIEWER as Vendor) ?? "codex",
@@ -39,11 +64,22 @@ async function main(): Promise<void> {
     }
   }
 
-  const verdict = await runPipeline(task, config, adapters);
+  let bestOf = 1;
+  if (process.env.DR_BEST_OF) {
+    bestOf = Number(process.env.DR_BEST_OF);
+    if (!Number.isInteger(bestOf) || bestOf < 1) {
+      console.error(`DR_BEST_OF must be a positive integer (got "${process.env.DR_BEST_OF}")`);
+      process.exit(2);
+    }
+  }
+
+  const verdict = await runPipeline(task, config, adapters, undefined, { bestOf });
   console.log(JSON.stringify(verdict, null, 2));
-  // A mock run is never a genuine cross-vendor pass — say so loudly.
-  const note = verdict.mockRun ? " (MOCK RUN — not a real cross-vendor review)" : "";
-  console.log(`VERDICT: ${verdict.passed ? "PASS" : "FAIL"}${note}`);
+
+  const parts = [`VERDICT: ${verdict.passed ? "PASS" : "FAIL"}`];
+  if (verdict.candidates) parts.push(`[best-of-${verdict.candidates}, winner #${verdict.judge?.winner}]`);
+  if (verdict.mockRun) parts.push("(MOCK RUN — not a real cross-vendor review)");
+  console.log(parts.join(" "));
   process.exit(verdict.passed ? 0 : 1);
 }
 

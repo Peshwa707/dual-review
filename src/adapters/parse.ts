@@ -22,3 +22,18 @@ export function parseReview(raw: string): { approved: boolean; notes: string } {
   }
   return { approved: false, notes: `unparseable review output: ${raw.slice(0, 200)}` };
 }
+
+/** Parse a judge verdict; fail CLOSED to candidate 0 on anything unparseable or out of range. */
+export function parseJudge(raw: string, n: number): { winner: number; notes: string } {
+  for (const candidate of [raw.trim(), stripFences(raw)]) {
+    try {
+      const obj = JSON.parse(candidate) as { winner?: unknown; notes?: unknown };
+      if (typeof obj.winner === "number" && Number.isInteger(obj.winner) && obj.winner >= 0 && obj.winner < n) {
+        return { winner: obj.winner, notes: typeof obj.notes === "string" ? obj.notes : "" };
+      }
+    } catch {
+      // try the next candidate
+    }
+  }
+  return { winner: 0, notes: `unparseable or out-of-range judge output; defaulted to candidate 0` };
+}

@@ -1,5 +1,20 @@
 import { describe, expect, test } from "bun:test";
-import { parseReview, stripFences } from "../src/adapters/parse";
+import { parseJudge, parseReview, stripFences } from "../src/adapters/parse";
+
+describe("parseJudge", () => {
+  test("parses a valid winner index", () => {
+    expect(parseJudge('{"winner":2,"notes":"n"}', 3)).toEqual({ winner: 2, notes: "n" });
+  });
+  test("fails closed to 0 on an out-of-range winner", () => {
+    expect(parseJudge('{"winner":5,"notes":"n"}', 3).winner).toBe(0);
+  });
+  test("fails closed to 0 on a non-integer winner", () => {
+    expect(parseJudge('{"winner":1.5,"notes":"n"}', 3).winner).toBe(0);
+  });
+  test("fails closed to 0 on garbage", () => {
+    expect(parseJudge("nope", 3).winner).toBe(0);
+  });
+});
 
 describe("parseReview", () => {
   test("parses plain JSON", () => {

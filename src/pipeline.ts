@@ -1,7 +1,7 @@
 import type { Adapter } from "./adapters/types";
 import { runtimeGateDef } from "./gates/runtime";
 import type { Gate } from "./gates/types";
-import type { GateResult, PipelineConfig, Task, Verdict } from "./types";
+import type { Artifact, GateResult, JudgeResult, PipelineConfig, Task, Verdict } from "./types";
 
 /** Thrown when the same vendor would both implement and review (violates cross-vendor invariant). */
 export class CrossVendorError extends Error {}
@@ -16,6 +16,7 @@ export async function runPipeline(
   config: PipelineConfig,
   adapters: Record<string, Adapter>,
   gates: Gate[] = [runtimeGateDef],
+  opts: { bestOf?: number } = {},
 ): Promise<Verdict> {
   if (config.implementer === config.reviewer) {
     throw new CrossVendorError(
@@ -45,7 +46,28 @@ export async function runPipeline(
     );
   }
 
-  const artifact = await impl.implement(task);
+  // Best-of-N: generate N candidates and let the (cross-vendor) reviewer judge the winner.
+  const bestOf = Math.max(1, Math.floor(opts.bestOf ?? 1));
+  let artifact: Artifact;
+  let candidateCount: number | undefined;
+  let judge: JudgeResult | undefined;
+  if (bestOf > 1) {
+    const candidates = await Promise.all(Array.from({ length: bestOf }, () => impl.implement(task)));
+    candidateCount = candidates.length;
+    if (rev.judge) {
+      try {
+        judge = await rev.judge(task, candidates);
+      } catch (err) {
+        judge = { by: rev.vendor, winner: 0, notes: `judge threw: ${err instanceof Error ? err.message : String(err)}` };
+      }
+    } else {
+      judge = { by: rev.vendor, winner: 0, notes: "reviewer has no judge; picked candidate 0" };
+    }
+    const w = judge.winner >= 0 && judge.winner < candidates.length ? judge.winner : 0;
+    artifact = candidates[w] as Artifact;
+  } else {
+    artifact = await impl.implement(task);
+  }
   const review = await rev.review(task, artifact);
 
   // Run gates in order, short-circuiting on the first failure. No gates run if review rejected.
@@ -65,7 +87,12 @@ export async function runPipeline(
     }
   }
   const passed = review.approved && gateResults.every((g) => g.status === "pass");
-  const mockRun = Boolean(artifact.mock || review.mock);
+  const mockRun = Boolean(artifact.mock || review.mock || judge?.mock);
 
-  return { task: task.id, passed, mockRun, artifact, review, gates: gateResults };
+  const verdict: Verdict = { task: task.id, passed, mockRun, artifact, review, gates: gateResults };
+  if (candidateCount !== undefined) {
+    verdict.candidates = candidateCount;
+    verdict.judge = judge;
+  }
+  return verdict;
 }

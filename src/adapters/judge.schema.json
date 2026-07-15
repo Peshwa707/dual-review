@@ -1,0 +1,9 @@
+{
+  "type": "object",
+  "properties": {
+    "winner": { "type": "integer" },
+    "notes": { "type": "string" }
+  },
+  "required": ["winner", "notes"],
+  "additionalProperties": false
+}

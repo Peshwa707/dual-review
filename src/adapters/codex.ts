@@ -2,12 +2,13 @@ import { mkdtemp, rm } from "node:fs/promises";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
 import { allowlistedEnv, spawnBounded, type Spawner } from "../spawn";
-import { parseReview } from "./parse";
-import { AGENT_TIMEOUT_MS, buildImplementPrompt, buildReviewPrompt } from "./shared";
+import { parseJudge, parseReview } from "./parse";
+import { AGENT_TIMEOUT_MS, buildImplementPrompt, buildJudgePrompt, buildReviewPrompt } from "./shared";
 import type { Adapter } from "./types";
-import type { Artifact, ReviewResult, Task } from "../types";
+import type { Artifact, JudgeResult, ReviewResult, Task } from "../types";
 
 const REVIEW_SCHEMA_PATH = join(import.meta.dir, "review.schema.json");
+const JUDGE_SCHEMA_PATH = join(import.meta.dir, "judge.schema.json");
 const CODEX_ENV_PASSTHROUGH = ["OPENAI_API_KEY", "CODEX_HOME"];
 
 /** Result of one `codex exec` invocation (the agent's final message). */
@@ -95,6 +96,18 @@ export function codexAdapter(opts: { run?: CodexRunner; model?: string } = {}): 
         return { by: "codex", ...parseReview(r.lastMessage) };
       } catch (err) {
         return { by: "codex", approved: false, notes: `codex review error: ${err instanceof Error ? err.message : String(err)}` };
+      }
+    },
+    async judge(task: Task, candidates: Artifact[]): Promise<JudgeResult> {
+      try {
+        const r = await run(buildJudgePrompt(task, candidates), {
+          schemaPath: JUDGE_SCHEMA_PATH,
+          timeoutMs: AGENT_TIMEOUT_MS,
+        });
+        if (!r.ok) return { by: "codex", winner: 0, notes: `codex judge failed: ${r.error ?? "unknown error"}` };
+        return { by: "codex", ...parseJudge(r.lastMessage, candidates.length) };
+      } catch (err) {
+        return { by: "codex", winner: 0, notes: `codex judge error: ${err instanceof Error ? err.message : String(err)}` };
       }
     },
   };

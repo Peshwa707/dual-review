@@ -1,8 +1,8 @@
 import { allowlistedEnv, spawnBounded, type Spawner } from "../spawn";
-import { parseReview } from "./parse";
-import { AGENT_TIMEOUT_MS, buildImplementPrompt, buildReviewPrompt } from "./shared";
+import { parseJudge, parseReview } from "./parse";
+import { AGENT_TIMEOUT_MS, buildImplementPrompt, buildJudgePrompt, buildReviewPrompt } from "./shared";
 import type { Adapter } from "./types";
-import type { Artifact, ReviewResult, Task } from "../types";
+import type { Artifact, JudgeResult, ReviewResult, Task } from "../types";
 
 const CLAUDE_ENV_PASSTHROUGH = ["ANTHROPIC_API_KEY", "CLAUDE_CODE_OAUTH_TOKEN", "ANTHROPIC_AUTH_TOKEN"];
 
@@ -79,6 +79,15 @@ export function claudeAdapter(opts: { run?: ClaudeRunner; model?: string } = {})
         return { by: "claude", ...parseReview(r.text) };
       } catch (err) {
         return { by: "claude", approved: false, notes: `claude review error: ${err instanceof Error ? err.message : String(err)}` };
+      }
+    },
+    async judge(task: Task, candidates: Artifact[]): Promise<JudgeResult> {
+      try {
+        const r = await run(buildJudgePrompt(task, candidates), { timeoutMs: AGENT_TIMEOUT_MS });
+        if (!r.ok) return { by: "claude", winner: 0, notes: `claude judge failed: ${r.error ?? "unknown error"}` };
+        return { by: "claude", ...parseJudge(r.text, candidates.length) };
+      } catch (err) {
+        return { by: "claude", winner: 0, notes: `claude judge error: ${err instanceof Error ? err.message : String(err)}` };
       }
     },
   };

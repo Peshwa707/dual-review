@@ -1,5 +1,5 @@
 import type { Adapter } from "./types";
-import type { Artifact, ReviewResult, Task, Vendor } from "../types";
+import type { Artifact, JudgeResult, ReviewResult, Task, Vendor } from "../types";
 
 /**
  * Deterministic mock adapter. Lets the whole pipeline run end-to-end with no
@@ -14,6 +14,9 @@ export function echoAdapter(vendor: Vendor): Adapter {
     },
     async review(_task: Task, artifact: Artifact): Promise<ReviewResult> {
       return { by: vendor, mock: true, approved: true, notes: `echo review of artifact by ${artifact.by}` };
+    },
+    async judge(_task: Task, candidates: Artifact[]): Promise<JudgeResult> {
+      return { by: vendor, mock: true, winner: 0, notes: `echo judge picked candidate 0 of ${candidates.length}` };
     },
   };
 }

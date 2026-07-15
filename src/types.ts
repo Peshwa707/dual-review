@@ -38,6 +38,16 @@ export interface ReviewResult {
   mock?: boolean;
 }
 
+/** A judge's pick of the best candidate in a best-of-N run. */
+export interface JudgeResult {
+  /** 0-based index of the winning candidate. */
+  winner: number;
+  by: Vendor;
+  notes: string;
+  /** True when produced by a mock adapter. */
+  mock?: boolean;
+}
+
 export type GateStatus = "pass" | "fail";
 
 /** Result of one gate in the ordered gate sequence. */
@@ -57,9 +67,13 @@ export interface PipelineConfig {
 export interface Verdict {
   task: string;
   passed: boolean;
-  /** True if the artifact or review came from a mock adapter — a mock run is NOT a genuine cross-vendor pass. */
+  /** True if the artifact, review, or judge came from a mock adapter — NOT a genuine cross-vendor pass. */
   mockRun: boolean;
   artifact: Artifact;
   review: ReviewResult;
   gates: GateResult[];
+  /** Number of candidate implementations generated (best-of-N); omitted when 1. */
+  candidates?: number;
+  /** The judge's pick, present only when best-of-N ran. */
+  judge?: JudgeResult;
 }
