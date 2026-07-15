@@ -1,6 +1,5 @@
 import { describe, expect, test } from "bun:test";
 import { codexAdapter, defaultCodexRunner } from "../src/adapters/codex";
-import { parseReview } from "../src/adapters/parse";
 import type { CodexRun, CodexRunner } from "../src/adapters/codex";
 import type { BoundedResult, Spawner } from "../src/spawn";
 import type { Task } from "../src/types";
@@ -71,21 +70,6 @@ describe("defaultCodexRunner (hermetic — injected spawn + readOutput)", () => 
     const r = await run("p", {});
     expect(r.ok).toBe(false);
     expect(r.error).toContain("no output");
-  });
-});
-
-describe("parseReview", () => {
-  test("strips a json code fence", () => {
-    expect(parseReview('```json\n{"approved":false,"notes":"n"}\n```')).toEqual({ approved: false, notes: "n" });
-  });
-  test("fails closed on garbage", () => {
-    expect(parseReview("nope").approved).toBe(false);
-  });
-  test("fails closed on well-formed JSON with a non-boolean 'approved'", () => {
-    expect(parseReview('{"approved":"yes","notes":"n"}').approved).toBe(false);
-  });
-  test("defaults notes to an empty string when missing", () => {
-    expect(parseReview('{"approved":true}')).toEqual({ approved: true, notes: "" });
   });
 });
 

@@ -17,8 +17,7 @@ async function main(): Promise<void> {
   assertTask(raw);
   const task = raw;
 
-  // Adapter registry. `codex` is the real adapter when DR_CODEX_LIVE is set, else a mock.
-  // `claude` is still a mock until the v1.1 Claude adapter lands.
+  // Adapter registry. A vendor is the real adapter when its DR_*_LIVE flag is set, else a mock.
   // Select who implements/reviews via DR_IMPLEMENTER / DR_REVIEWER (defaults: claude -> codex).
   const config: PipelineConfig = {
     implementer: (process.env.DR_IMPLEMENTER as Vendor) ?? "claude",
