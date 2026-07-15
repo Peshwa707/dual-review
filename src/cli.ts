@@ -2,6 +2,7 @@
 import { claudeAdapter } from "./adapters/claude";
 import { codexAdapter } from "./adapters/codex";
 import { echoAdapter } from "./adapters/echo";
+import { MAX_BEST_OF } from "./bestof";
 import { runPipeline } from "./pipeline";
 import { assertTask } from "./task";
 import type { PipelineConfig, Vendor } from "./types";
@@ -67,8 +68,8 @@ async function main(): Promise<void> {
   let bestOf = 1;
   if (process.env.DR_BEST_OF) {
     bestOf = Number(process.env.DR_BEST_OF);
-    if (!Number.isInteger(bestOf) || bestOf < 1) {
-      console.error(`DR_BEST_OF must be a positive integer (got "${process.env.DR_BEST_OF}")`);
+    if (!Number.isInteger(bestOf) || bestOf < 1 || bestOf > MAX_BEST_OF) {
+      console.error(`DR_BEST_OF must be an integer between 1 and ${MAX_BEST_OF} (got "${process.env.DR_BEST_OF}")`);
       process.exit(2);
     }
   }

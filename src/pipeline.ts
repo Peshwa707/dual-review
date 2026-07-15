@@ -1,4 +1,5 @@
 import type { Adapter } from "./adapters/types";
+import { normalizeBestOf, normalizeWinner } from "./bestof";
 import { runtimeGateDef } from "./gates/runtime";
 import type { Gate } from "./gates/types";
 import type { Artifact, GateResult, JudgeResult, PipelineConfig, Task, Verdict } from "./types";
@@ -47,12 +48,18 @@ export async function runPipeline(
   }
 
   // Best-of-N: generate N candidates and let the (cross-vendor) reviewer judge the winner.
-  const bestOf = Math.max(1, Math.floor(opts.bestOf ?? 1));
+  const bestOf = normalizeBestOf(opts.bestOf);
   let artifact: Artifact;
   let candidateCount: number | undefined;
   let judge: JudgeResult | undefined;
   if (bestOf > 1) {
-    const candidates = await Promise.all(Array.from({ length: bestOf }, () => impl.implement(task)));
+    // Generate concurrently; survive partial failures — judge the survivors, throw only if all fail.
+    const settled = await Promise.allSettled(Array.from({ length: bestOf }, () => impl.implement(task)));
+    const candidates = settled.flatMap((s) => (s.status === "fulfilled" ? [s.value] : []));
+    if (candidates.length === 0) {
+      const rejected = settled.find((s) => s.status === "rejected") as PromiseRejectedResult | undefined;
+      throw rejected ? rejected.reason : new Error("all best-of-N candidates failed");
+    }
     candidateCount = candidates.length;
     if (rev.judge) {
       try {
@@ -63,12 +70,14 @@ export async function runPipeline(
     } else {
       judge = { by: rev.vendor, winner: 0, notes: "reviewer has no judge; picked candidate 0" };
     }
-    const w = judge.winner >= 0 && judge.winner < candidates.length ? judge.winner : 0;
-    artifact = candidates[w] as Artifact;
+    // Authoritative: stamp the reviewer's real vendor and coerce the winner to a valid index.
+    judge = { ...judge, by: rev.vendor, winner: normalizeWinner(judge.winner, candidates.length) };
+    artifact = { ...(candidates[judge.winner] as Artifact), by: impl.vendor };
   } else {
-    artifact = await impl.implement(task);
+    artifact = { ...(await impl.implement(task)), by: impl.vendor };
   }
-  const review = await rev.review(task, artifact);
+  // Provenance is authoritative: the reviewer can't lie about who reviewed.
+  const review = { ...(await rev.review(task, artifact)), by: rev.vendor };
 
   // Run gates in order, short-circuiting on the first failure. No gates run if review rejected.
   // A gate that throws fails closed (recorded as a fail), never crashing the pipeline.
